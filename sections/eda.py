@@ -22,9 +22,11 @@ def show_eda(df):
 
     for col, mapping in mappings.items():
         if col in df.columns:
-            df[col] = df[col].map(mapping).astype('category')
-
-    
+            df[col] = df[col].map(mapping).fillna(df[col])
+            
+            if df[col].notna().any():
+                df[col] = df[col].astype('category')
+        
 
     numerical_col = df.select_dtypes(include=['number']).columns
     if len(numerical_col) > 0:
@@ -37,20 +39,30 @@ def show_eda(df):
         else:
             st.warning("No numerical columns available for pairplot.")
 
-
-    
-    categorical_cols = df.select_dtypes(include=['category']).columns
+    categorical_cols = df.select_dtypes(include=['category', 'object']).columns
     if len(categorical_cols) > 0:
         st.markdown("### Pie Chart for Categorical Features")
-        if len(categorical_cols)> 0:
-            select_col = st.selectbox("Select a categorical column for pie chart", categorical_cols)
-            if select_col:
-                pie_data = df[select_col].value_counts()
-                fig, ax = plt.subplots()
-                ax.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%', startangle=90)
-                ax.axis('equal')
-                st.pyplot(fig)  
-
-
-
-    
+        select_col = st.selectbox("Select a categorical column for pie chart", categorical_cols)
+        
+        if select_col:
+            # st.write(f"Column '{select_col}' info:")
+            # st.write(f"Data type: {df[select_col].dtype}")
+            # st.write(f"Number of non-null values: {df[select_col].count()}")
+            # st.write(f"Number of unique values: {df[select_col].nunique()}")
+            # st.write(f"First few values: {df[select_col].head().tolist()}")
+            
+            filtered_col = df[select_col].dropna()
+            
+            if len(filtered_col) > 0:
+                pie_data = filtered_col.value_counts()
+                
+                if len(pie_data) > 0:
+                    fig = plt.figure(figsize=(8, 8))
+                    plt.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%', startangle=90)
+                    plt.axis('equal')
+                    plt.title(f"Distribution of {select_col}")
+                    st.pyplot(fig)
+                else:
+                    st.warning(f"No valid categorical data found in '{select_col}' after processing")
+            else:
+                st.warning(f"No non-null values found in column '{select_col}'")
