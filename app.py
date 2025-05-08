@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 from src.train import read
 from sections.home import show_home
