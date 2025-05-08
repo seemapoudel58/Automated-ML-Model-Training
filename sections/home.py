@@ -20,15 +20,13 @@ def show_home():
 
     dataset = st.selectbox(f" **Select a Dataset ** ", data_list)
     df = read(dataset)
-
+    
     st.session_state["df"] = df
     st.session_state.dataset_name = dataset
 
-
-
     if df is not None:
-        st.subheader("Dataset Preview")
-        st.dataframe(df, use_container_width=True)
+        with st.expander("Dataset Preview"):
+            st.dataframe(df, use_container_width=True)
 
         st.subheader("Dataset Info")
         st.markdown(f"- **Rows**: {df.shape[0]}  \n- **Columns**: {df.shape[1]} \n- **Column Names**: {', '.join(df.columns)}")
