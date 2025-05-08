@@ -1,80 +1,88 @@
 import streamlit as st
-import seaborn as sns   
+import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd   
 
-def detect_categorical_columns(df, max_unique_values=10, exclude_cols=None):
-    if exclude_cols is None:
-        exclude_cols = ['target', 'label', 'outcome']
-    
-    exclude_cols = [col.lower() for col in exclude_cols]
+def get_categorical_columns(df, target_col):
+    cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()  
+    num_cols = [col for col in df.select_dtypes(include='number').columns
+                if df[col].nunique() <= 10 and col != target_col] 
+    return list(set(cat_cols + num_cols) - {target_col})
 
-    cat_cols = []
+# Initialize session state
+def init_session(df):
+    if 'target_col' not in st.session_state:
+        st.session_state.target_col = df.columns[0]
 
-    for col in df.select_dtypes(include=['category', 'object']).columns:
-        if col.lower() not in exclude_cols:
-            cat_cols.append(col)
+def show_eda(df):
+    st.title("Exploratory Data Analysis")
 
-    for col in df.select_dtypes(include='number').columns:
-        if col.lower() in exclude_cols:
-            continue
-        unique_values = df[col].dropna().unique()
-        if len(unique_values) <= max_unique_values and all(float(v).is_integer() for v in unique_values):
-            cat_cols.append(col)
-
-    return list(set(cat_cols))
-
-def show_eda(df):   
-    st.title("Exploratory Data Analysis (EDA)")
-
-    if df is None or df.empty:
-        st.warning("No dataset available for EDA. Please select a dataset from the Home page.")
+    if df.empty:
+        st.warning("Please upload a dataset on the Home page.")
         return
-    
 
-    categorical_cols = detect_categorical_columns(df)
+    init_session(df)
 
-    numerical_col = [col for col in df.select_dtypes(include=['number']).columns if col not in categorical_cols]
+    st.selectbox("Select Target Column", df.columns, key='target_col')
 
-    if len(numerical_col) > 0:
-        st.markdown("### Pairplot")
-        if len(numerical_col) > 0:
-            fig = sns.pairplot(df[numerical_col],  diag_kind='kde')
-            st.pyplot(fig)
-            print(df.columns)
+    target = st.session_state.target_col
+    cat_cols = get_categorical_columns(df, target)
+    num_cols = [col for col in df.select_dtypes(include='number').columns if col not in cat_cols + [target]]
 
-        else:
-            st.warning("No numerical columns available for pairplot.")
-    for col in categorical_cols:
-        df[col] = df[col].astype('category')
-
-
-    if len(categorical_cols) > 0:
-        st.markdown("### Pie Chart for Categorical Features")
-        select_col = st.selectbox("Select a categorical column for pie chart", categorical_cols)
+    # Pairplot
+    if target and len(num_cols) > 1:
+        st.subheader("Pairplot")
+        try:
+            sns_fig = sns.pairplot(df[num_cols + [target]], hue=target, diag_kind='kde')
+            st.pyplot(sns_fig)
+        except Exception as e:
+            st.error(f"Failed to generate pairplot: {e}")
         
-        if select_col:
-            # st.write(f"Column '{select_col}' info:")
-            # st.write(f"Data type: {df[select_col].dtype}")
-            # st.write(f"Number of non-null values: {df[select_col].count()}")
-            # st.write(f"Number of unique values: {df[select_col].nunique()}")
-            # st.write(f"First few values: {df[select_col].head().tolist()}")
-            
-            filtered_col = df[select_col].dropna()
-            
-            if len(filtered_col) > 0:
-                pie_data = filtered_col.value_counts()
-                
-                if len(pie_data) > 0:
-                    fig = plt.figure(figsize=(8, 8))
-                    plt.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%', startangle=90)
-                    plt.axis('equal')
-                    plt.title(f"Distribution of {select_col}")
-                    st.pyplot(fig)
-                else:
-                    st.warning(f"No valid categorical data found in '{select_col}' after processing")
-            else:
-                st.warning(f"No non-null values found in column '{select_col}'")
+    col1, col2 = st.columns(2)
+
+    # Pie Chart
+    with col2:
+        st.subheader("Pie Chart")
+        if cat_cols:
+            pie_col = st.selectbox("Choose categorical column for pie chart", cat_cols)
+            pie_data = df[pie_col].value_counts()
+            fig, ax = plt.subplots()
+            ax.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%', startangle=90)
+            ax.set_title(f"Distribution of {pie_col}")
+            st.pyplot(fig)
+        else:
+            st.warning("No categorical columns available to display the pie chart.")
+
+    # Correlation Heatmap
+    with col1:
+        if len(num_cols) > 1:
+            st.subheader("Correlation Heatmap")
+            fig, ax = plt.subplots()
+            corr = df[num_cols].corr()
+            sns.heatmap(corr, annot=True, cmap='coolwarm', ax=ax)
+            st.pyplot(fig)
+
+    # Box Plot
+    if cat_cols and num_cols:
+        st.subheader("Box Plot")
+        with st.form(key='box_plot_form'):
+            col1, col2 = st.columns(2)
+            with col1:
+                box_cat = st.selectbox("Choose categorical column", cat_cols, key='box_cat')
+            with col2:
+                box_num = st.selectbox("Choose numerical column", num_cols, key='box_num')
+            generate_plot = st.form_submit_button("Generate Box Plot")
+
+        if generate_plot:
+            fig, ax = plt.subplots()
+            sns.boxplot(x=df[box_cat], y=df[box_num], ax=ax)
+            ax.set_title(f"{box_num} by {box_cat}")
+            st.pyplot(fig)
     else:
-        st.warning("No categorical columns available for pie chart.")
+        st.subheader("Box Plot")
+        if not cat_cols:
+            st.warning("No categorical columns available to display the box plot.")
+        if not num_cols:
+            st.warning("No numerical columns available to display the box plot.")
+
 
