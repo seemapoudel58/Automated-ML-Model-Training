@@ -2,6 +2,7 @@ import streamlit as st
 from src.train import read
 from sections.home import show_home
 from sections.eda import show_eda
+from sections.model_training import show_model_training
 
 st.set_page_config(page_title="Automate ML", page_icon="📊", layout="wide")
 
@@ -15,7 +16,7 @@ def go_to_page(page_name):
 if st.session_state.page == "Home":
     show_home()
 
-    if st.button('Next Page'):
+    if st.button("Next Page"):
         go_to_page("EDA")
 
 elif st.session_state.page == "EDA":
@@ -32,3 +33,14 @@ elif st.session_state.page == "EDA":
     with col2:
         if st.button("Next Page"):
             go_to_page("Model Training")
+
+elif st.session_state.page == 'Model Training':
+    df = st.session_state.get("df", None)
+    if df is not None:
+        show_model_training(df)
+    else:
+        st.warning("Please select a dataset from the Home page.")
+    
+    if st.button("Previous Page"):
+        go_to_page("EDA")
+
