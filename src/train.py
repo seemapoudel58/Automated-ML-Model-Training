@@ -20,15 +20,19 @@ def read(file_name):
         return df
     else:
         raise ValueError("Unsupported file format. Please provide a .csv or .xlsx file.")
-
-def preprocess(df, target_column, scalar_type):
+    
+def preprocess(df, target_column, scalar_type, test_size=0.2, random_state=None, stratify=False):
     X = df.drop(columns=[target_column])
     y = df[target_column]
 
     numerical_features = X.select_dtypes(include=['number']).columns
     categorical_features = X.select_dtypes(include=['object', 'category']).columns
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    stratify_param = y if stratify else None
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=stratify_param
+    )
 
     if len(numerical_features) > 0:
         num_impute = SimpleImputer(strategy='mean')
@@ -57,10 +61,10 @@ def preprocess(df, target_column, scalar_type):
 
     return X_train, X_test, y_train, y_test
 
-def train_model(X_train, y_train, model, saved_name):
+def train_model(X_train, y_train, model):
     model.fit(X_train, y_train)
 
-    model_path = os.path.join(parent_dir, 'models', saved_name + '.pkl')
+    model_path = os.path.join(parent_dir, 'models'+ '.pkl')
     with open(model_path, 'wb') as f:
         pickle.dump(model, f)
     return model
@@ -68,5 +72,5 @@ def train_model(X_train, y_train, model, saved_name):
 def evaluate_model(model, X_test, y_test):
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    accuracy = round(accuracy, 2)
+    accuracy = round(accuracy * 100, 2)
     return accuracy
