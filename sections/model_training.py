@@ -41,6 +41,9 @@ def show_model_training(df):
             trained_model = train.train_model(X_train, y_train, model)
             acc = train.evaluate_model(trained_model, X_test, y_test)
 
+            st.session_state["trained_model"]= trained_model
+            st.session_state["X_train"] = X_train
+
             st.success(f"Model trained! Accuracy: {acc}%")
         except Exception as e:
             st.error(f"Error during training: {str(e)}")
